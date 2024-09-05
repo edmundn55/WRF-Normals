@@ -1,7 +1,7 @@
 #!/usr/bin/env python
+# encoding: utf-8
 
 # Load packages
-# import numpy as np
 import xarray as xr
 from pathlib import Path
 import cftime
@@ -40,19 +40,19 @@ def build_parameter(data):
     # Build paths for different folder types
     # For WRFTools
     if 'WRFTools' in data.attrs['experiment']:
-        par = get_nth_word_custom_delimiter(data.attrs['experiment'],'_',2) 
+        par = get_nth_word_custom_delimiter(data.attrs['experiment'], '_', 2) 
         path = 'WRFTools/'+par+'/na24/'
         scen = ''                                                            # Empty for WRFTools
 
     else:
     # Path of other simulations 
         full_par = data.attrs['experiment']
-        force_d = get_nth_word_custom_delimiter(full_par,'_',1)              # Forcing dataset
-        scen = get_nth_word_custom_delimiter(full_par,'_',2)                 # Scenario
-        grid = get_nth_word_custom_delimiter(full_par,'_',3)                 # Grid
+        force_d = get_nth_word_custom_delimiter(full_par, '_' ,1)              # Forcing dataset
+        scen = get_nth_word_custom_delimiter(full_par, '_', 2)                 # Scenario
+        grid = get_nth_word_custom_delimiter(full_par, '_', 3)                 # Grid
         if grid == 'NA24':                                                   # convert to small case
             grid = 'na24'
-        phys = get_nth_word_custom_delimiter(full_par,'_',4)                 # Physical configuration
+        phys = get_nth_word_custom_delimiter(full_par, '_', 4)                 # Physical configuration
         # Fix issues with directory format -YYYY
         if phys[-5] == '-':
             phys = phys[0:-5]
@@ -76,17 +76,17 @@ def climate_normals(dir_input, freq, sub_dir='wrfavg', dir_ouput=None):
     """
    
     # Open datasets with dask
-    raw_data = {file.stem :xr.open_dataset(file,chunks={'time':-1},decode_times=False) for file in Path(dir_input).glob(sub_dir+'/*monthly.nc')}
+    raw_data = {file.stem :xr.open_dataset(file, chunks={'time':-1}, decode_times=False) for file in Path(dir_input).glob(sub_dir+'/*monthly.nc')}
     
     # Compute Normals for each dataset
     first_loop = True
     for key in raw_data.keys():
-        print('\n',key,freq,'start')
+        print('\n', key, freq, 'start')
         data = raw_data[key]
         # Grab first year
         start_year = data.attrs['begin_date'][0:4]
         # Grab wrf subcategory
-        wrf_cat = get_nth_word_custom_delimiter(data.attrs['description'],' ',1)
+        wrf_cat = get_nth_word_custom_delimiter(data.attrs['description'], ' ', 1)
         # Convert time to datetime64
         data['time'] = pd.date_range(start=start_year+'-01-01', periods=data.sizes['time'], freq='MS')
 
@@ -96,15 +96,14 @@ def climate_normals(dir_input, freq, sub_dir='wrfavg', dir_ouput=None):
             path, scen = build_parameter(data)
             # Build output directory 
             if dir_ouput != None:
-                out_dir = os.path.join(dir_ouput,path)
+                out_dir = os.path.join(dir_ouput, path)
             else:
                 out_dir = path
             # Check if directory exists and create if false
             if os.path.exists(out_dir) == False:
                 os.makedirs(out_dir)
             else:
-                print('Directory exists\n')
-                print(out_dir)
+                print(out_dir, 'Directory exists\n')
             first_loop = False
         # Build full path for output file
         # For missing scenario
@@ -114,11 +113,11 @@ def climate_normals(dir_input, freq, sub_dir='wrfavg', dir_ouput=None):
             out_file = out_dir+wrf_cat+'_'+scen+'_'+freq[0:3]+'-norm-'+start_year+'-'+end_year+'.nc'
         # Check if file exists
         if os.path.isfile(out_file):
-            print(out_file,'File exists\n')
+            print(out_file, 'File exists\n')
 
         # Ignore temporary file in folder
         elif 'tmp_' in key:
-            print(key,'skip\n')
+            print(key, 'skip\n')
         else:
             # Group dataset by months or seasons and compute mean
             data_norm = data.groupby('time.'+freq).mean('time')
