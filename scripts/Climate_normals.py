@@ -90,7 +90,7 @@ def climate_normals(freq, dir_ouput, start, end):
     """
    
     # Open datasets with dask
-    raw_data = {file.stem :xr.open_dataset(file, chunks={'time':-1}, decode_times=False) for file in Path(os.getcwd()).glob('/*monthly.nc')}
+    raw_data = {file.stem :xr.open_dataset(file, chunks={'time':-1}, decode_times=False) for file in Path(os.getcwd()).glob('*monthly.nc')}
     
     # Compute Normals for each dataset
     first_loop = True
