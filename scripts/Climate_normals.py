@@ -83,8 +83,8 @@ def climate_normals(freq, dir_ouput, start, end):
     Input arguments: 
     dir_input: directory of simulation folder
     dir_out: directory of folder for outputs, currently working directory by default
-    start: first year of normal
-    end: last year of normal
+    start: first year of normal as string
+    end: last year of normal as string
     * Both start and end inputs are required for slicing
     freq: Frequency for normals, month = Monthly, season = Seasonal 
     """
