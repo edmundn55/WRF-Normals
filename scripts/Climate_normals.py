@@ -148,9 +148,8 @@ if __name__ == "__main__":
     # Description
     parser = argparse.ArgumentParser(description = 
                                      'Function: Compute monthly or seasonal norms and export as netcdf from monthly data series')
-    # Mandatory argument
-    parser.add_argument('-f', '--freq', type = str, default = 'month', help = 'Frequency: month or season')
     # Optional arguments
+    parser.add_argument('-f', '--freq', type = str, default = 'month', help = 'Frequency: month or season')
     # Directory for output
     parser.add_argument('-d', '--dir', type = str, default = '', help = "Directory of output as string")
     # Period
