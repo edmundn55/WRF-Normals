@@ -8,16 +8,9 @@ import xarray as xr
 from pathlib import Path
 import cftime
 import pandas as pd
-import os, glob, datetime
+import os, glob, datetime, argparse
 # Set global option
 xr.set_options(keep_attrs=True)
-
-# Set variables for main function
-freq_time = ""                # temporal frequency of normal, month or season
-start_y = ""                  # starting year
-end_y = ""                    # ending year
-dir_out = ""                  # ouput directory
-
 
 def get_nth_word_custom_delimiter(string, delimiter, n):
     """
@@ -35,7 +28,7 @@ def get_nth_word_custom_delimiter(string, delimiter, n):
     else:
         return "Invalid"
 
-def build_parameter(data, output=None):
+def build_parameter(data, output = 'path'):
     """
     Function: Extract parameter to build nested directory from xarray dataset
     
@@ -71,7 +64,8 @@ def build_parameter(data, output=None):
     # return by conditions
     if output == 'path':
         return path, scen
-    return force_d, phys
+    elif output == 'par':
+        return force_d, phys
 
 
 def climate_normals(freq, dir_ouput, start, end):
@@ -98,20 +92,25 @@ def climate_normals(freq, dir_ouput, start, end):
         print('\n', key, freq, 'start')
         data = raw_data[key]
         # Grab first year
-        start_year_raw = data.attrs['begin_date'][0:4]
+        start_date = pd.to_datetime(data.attrs['begin_date'])
         # Grab wrf subcategory
         wrf_cat = get_nth_word_custom_delimiter(data.attrs['description'], ' ', 1)
         # Convert time to datetime64
-        data['time'] = pd.date_range(start = start_year_raw  +  '-01-01', periods = data.sizes['time'], freq = 'MS')
+        data['time'] = pd.date_range(start = start_date, periods = data.sizes['time'], freq = 'MS')
         # slice data if selected time period if necessary
         if start != "" and end != "":
-            data = data.isel(time=(data.time.dt.date >= datetime.date(int(start), 1, 1)) & (data.time.dt.date < datetime.date(int(end) + 1, 1, 1)))
+            start_date = pd.to_datetime(start + '-01-01')
+            end_date = pd.to_datetime(end + '-12-31')
+            data = data.sel(time=slice(start_date, end_date))
         else: 
             pass
+        # Add global attribute for normal period
+        data.attrs['norm_begin_date'] = str(data.time[0].dt.date.values)
+        data.attrs['norm_end_date'] = str(data.time[-1].dt.date.values)
         # Identify start and end year of sliced data   
         if first_loop:
-            start_year = str(data.time[0].values)[0:4]
-            end_year = str(data.time[-1].values)[0:4]
+            start_year = str(data.time[0].dt.year.values)
+            end_year = str(data.time[-1].dt.year.values)
             path, scen = build_parameter(data, output = 'path')
             # Build output directory 
             if dir_ouput != "":
@@ -146,8 +145,22 @@ def climate_normals(freq, dir_ouput, start, end):
 
 # Only excute codes when run as a script
 if __name__ == "__main__":
+    # Description
+    parser = argparse.ArgumentParser(description = 
+                                     'Function: Compute monthly or seasonal norms and export as netcdf from monthly data series')
+    # Mandatory argument
+    parser.add_argument('-f', '--freq', type = str, default = 'month', help = 'Frequency: month or season')
+    # Optional arguments
+    # Directory for output
+    parser.add_argument('-d', '--dir', type = str, default = '', help = "Directory of output as string")
+    # Period
+    parser.add_argument('-p', '--period', type = str, nargs = 2, default = ['', ''], 
+                        help = 'Period of interet as string: start year end year')
+    # Convert arguments to objects
+    args = parser.parse_args()
+    # args for periods
+    start_y, end_y = args.period
     # clear terminal
     os.system('clear')
     # generate normals
-    climate_normals(freq = freq_time, dir_ouput = dir_out, start = start_y, end = end_y)
-    
+    climate_normals(freq = args.freq, dir_ouput = args.dir, start = start_y, end = end_y)
