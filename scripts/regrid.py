@@ -166,54 +166,70 @@ def fix_latlon(ds, type_d, wrf_ll = None):
         ds_fixed = ds
     return  ds_fixed
 
+# Function for regridding
+def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
+    """
+    Function: perform regridding, reuse regridder weight matrix if found or write to disk as netcdf if missing
+    Inputs:
+    1. ds_in: input dataset (dataset that undergoes re-gridding) with name and grid added as attrs
+    2. ds_out: output dataset (dataset that provides reference grid) with name and grid added as attrs
+    3. m: regridding method* as string, patch as default
+    * Methods avaiable: https://xesmf.readthedocs.io/en/stable/user_api.html
+      Methods definition: https://earthsystemmodeling.org/regrid/#regridding-methods
+    **kwargs  keyword arguments
+    5. dir_wm: directory of weight matrix if not stored in current working directory
+    Outputs:
+    1. Regridded xarray dataset/ dataarray
+    2. Regridder weight matrix.nc if missing
+    """
+    # build weight matrix filename
+    wm = ds_in.attrs['ds_name'] +'-'+ ds_in.attrs['grid'] + '_' + ds_out.attrs['ds_name'] + '-' + ds_out.attrs['grid'] + '_' + m + '.nc'
+    # build full path 
+    # if weight matrix is not stored in current working directory
+    if 'dir_wm' in kwargs.keys():
+        wm = os.path.join(kwargs['dir_wm'],wm)
+    else:
+        pass
+    # check if weight matrix is previously created
+    if os.path.isfile(wm):
+        regridder = xe.Regridder(ds_in, ds_out, method = m, weights = wm, keep_attrs = True)
+    # create weight matrix nc if missing
+    else:
+        regridder = xe.Regridder(ds_in, ds_out, method = m, keep_attrs = True)
+        # build xr dataset for export, adapted from xesmf/frontend.py (Line 759 - 768). DOI: https://doi.org/10.5281/zenodo.4294774
+        w = regridder.weights.data
+        dim = 'n_s'
+        wm_ds = xr.Dataset(
+            {'S': (dim, w.data), 'col': (dim, w.coords[1, :] + 1), 'row': (dim, w.coords[0, :] + 1)}
+        )
+        # add attrs
+        wm_ds.attrs['input_grid'] = ds_in.attrs['input_grid']
+        wm_ds.attrs['output_grid'] = ds_in.attrs['output_grid']
+        wm_ds.to_netcdf(path = wm)
+        
+    # Perform regridding 
+    ds_in_re = regridder(ds_in)
+    # Update grid attrs in regridded dataset
+    ds_in_re['input_grid'] = ds_in.attrs['input_grid']
+    ds_in_re['output_grid'] = ds_in.attrs['output_grid']
+    return ds_in_re
+
 # Interpolate to WRF24 grids
-def to_WRF_grid(datasets, wrf_proj, wrf_d = None, m = 'patch'):
+# Interpolate to WRF24 grids
+def to_WRF_grid(ds, wrf_proj):
     """
     Function: Interpolate input dataset (WRF/ERA5/CERES/Rutgers) to WRF24 grid and perform remapping 
               remap from polar to WRF24 for i.ie. Rutgers Northern Hemisphere 24 km Weekly Snow Cover Extent
               or from WGS1984 to WRF24 for i.e. ERA5 Land, ERA5 plev, ERA5 slev
-    Input: WRF / ERA5 / CERES / Rutgers xarray dataarrays in dictionaries,
-           WRF projection, coordinate system, lats, lons in dictionary
-    Output: xarray dataset(s) in WRF24 grid
+    Input: WRF / ERA5 / CERES / Rutgers xarray dataset/dataarray,
+           WRF projection, coordinate system 
+    Output: xarray dataset/dataarray in WRF24 grid
     """
-    # create new dictionary for remapped dataarrays
-    datasets_re = {}
-    # for WRF
-    if any(phy in name for phy,name in zip(phys,datasets.keys())):
-        for name in datasets.keys():
-            datasets[name] = datasets[name].assign_coords({'lat':(('south_north','west_east'),wrf_proj['wrf_lats'].values),'lon':(('south_north','west_east'),wrf_proj['wrf_lons'].values)})
-            # Generate lat long based on WRF Projection
-            xform_pts = wrf_proj['cart_proj'].transform_points(wrf_proj['wrf_crs'],to_np(datasets[name].lon),to_np(datasets[name].lat))
-            wrf_x = xform_pts[...,0]
-            wrf_y = xform_pts[...,1]
-            # insert lat and lon grids into dataset         
-            datasets_re[name] = datasets[name].assign_coords({'lat':(('south_north','west_east'),wrf_y),'lon':(('south_north','west_east'),wrf_x)})
-        return datasets, datasets_re
-    # for obs datasets
-    else:
-        for name in datasets.keys():
-            # for rutgers
-            if name == 'rutgers':
-                datasets[name] = datasets[name].rename({'latitude':'lat','longitude':'lon'})
-                # extract lats/lons
-                obs_lat = datasets[name].lat.values
-                obs_lon = datasets[name].lon.values.T
-                # replace missing values with np.nan and reassign into dataarray
-                new_lat = np.where(obs_lat>90,np.nan,obs_lat)
-                new_lon = np.where(obs_lon>180,np.nan,obs_lon)
-                datasets[name] = datasets[name].assign_coords({'lat':(('x','y'),new_lat),'lon':(('x','y'),new_lon)})
-            # rename latitude and longitude to lat/lon for ERA5L and era5slev
-            elif any(era5 in name for era5 in era5s):
-                datasets[name] = datasets[name].rename({'latitude':'lat','longitude':'lon'})
-            # Regridding with WRF dataarray in curvilinear grid instead of WRF grid
-            Regridder_obs=xe.Regridder(datasets[name],wrf_d, method = m)
-            datasets_re[name]=Regridder_obs(datasets[name],keep_attrs=True)
-            # Transform to WRF Projection
-            xform_pts = wrf_proj['cart_proj'].transform_points(wrf_proj['wrf_crs'],to_np(datasets_re[name].lon.values),to_np(datasets_re[name].lat.values))
-            obs_wrf_x = xform_pts[...,0]
-            obs_wrf_y = xform_pts[...,1]
-            datasets_re[name]=datasets_re[name].assign_coords({'lat':(('south_north','west_east'),obs_wrf_y),
-                                                               'lon':(('south_north','west_east',),obs_wrf_x)})
-        return datasets_re
+    # Transform to WRF Projection
+    xform_pts = wrf_proj['cart_proj'].transform_points(wrf_proj['wrf_crs'],to_np(ds.lon.values),to_np(ds.lat.values))
+    wrf_x = xform_pts[...,0]
+    wrf_y = xform_pts[...,1]
+    ds_wrf=ds.assign_coords({'lat':(('south_north','west_east'),wrf_y),
+                                                       'lon':(('south_north','west_east',),wrf_x)})
+    return ds_wrf
 
-S
