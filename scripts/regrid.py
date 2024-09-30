@@ -23,11 +23,6 @@ from wrf import (getvar, interplevel, vertcross,
 from matplotlib import pyplot as plt
 # Define global setting
 xr.set_options(keep_attrs=True)
-# wrf phys
-phys = ['conus43','new43','new43loc']
-# ERA5
-era5s = ['ERA5L', 'era5slev']
-
 
 # Build curvilinear grids for xarray datasets
 def build_wrf_grid(geo_file):
@@ -68,8 +63,12 @@ def grid_parameter(ds):
     """
     # for WRF dataset
     if re.search('wrf', ds, re.I):
-        grid = 'wrfna24'
         name = 'wrf'
+        # find grid type
+        if re.search('na24', ds, re.I):
+            grid = 'na24'
+        elif re.search('wrf24', ds, re.I):
+            grid = 'wrf24'
     # for NRCan
     elif re.search('nrcan', ds, re.I):
         grid = 'na12'
@@ -215,7 +214,6 @@ def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
     return ds_in_re
 
 # Interpolate to WRF24 grids
-# Interpolate to WRF24 grids
 def to_WRF_grid(ds, wrf_proj):
     """
     Function: Interpolate input dataset (WRF/ERA5/CERES/Rutgers) to WRF24 grid and perform remapping 
@@ -233,3 +231,76 @@ def to_WRF_grid(ds, wrf_proj):
                                                        'lon':(('south_north','west_east',),wrf_x)})
     return ds_wrf
 
+def find_tem_freq(ds_in):
+    """
+    Functions: identify temporal frequency
+    Input: 
+    1. ds_in: xarray dataset/dataarray
+    Output:
+    !. temporal frequency as string
+    """
+    freq = xr.infer_freq(ds_in.time)
+    # if xr.infer_freq does not work
+    if freq is None:
+        delta = pd.to_timedelta(np.diff(ds_in.time)).mean()
+        if delta.days <=31 and delta.days>=28:
+            freq = 'MS'
+        elif delta.days == 7:
+            freq = 'W'
+    else:
+        pass
+    # return freq name based on results
+    if 'MS' in freq or 'ME' in freq:
+        ds_freq = 'monthly'
+    elif 'W' in freq:
+        ds_freq = 'weekly'
+    elif 'Q' in freq:
+        ds_freq = 'seasonal'
+    elif 'Y' in freq:
+        ds_freq = 'yearly'
+    return ds_freq
+
+# Function to build filename of exported netcdf
+def build_regridded_nc_filename(ds_in):
+    """
+    Function: build filename for exported regridded nc
+    Inputs:
+    1. ds_in: xarray dataset/dataarray of output dataset with ds_name, input_grid, output_grid, ds_path as attrs
+    Output:
+    Filename
+    """
+    # for WRF
+    if re.search('wrf', ds_in.attrs['ds_path'], re.I):
+        # for WRF norm
+        if re.search('norm', ds_in.attrs['ds_path']):
+            filename = ds_in.attrs['ds_path'].replace(ds_in.attrs['input_grid'],ds_in.attrs['output_grid'])
+        # for wrf monthly series
+        else:
+            # build path 
+            path, scen = build_parameter(ds_in)
+            # replace grid in path
+            path_new = path.replace(ds_in.attrs['input_grid'],ds_in.attrs['output_grid'])
+            # find period
+            start_year = str(ds_in.time[0].dt.year.values)
+            end_year = str(ds_in.time[-1].dt.year.values)
+            # get wrf subcategory
+            wrf_cat = get_nth_word_custom_delimiter(ds_in.attrs['description'], ' ', 1)
+            # name for netcdf
+            filename_sub = wrf_cat + '_' + scen + '_' + 'monthly-' + start_year + '-' + end_year +'.nc' 
+            # build filename
+            filename = os.path.join(path_new, filename_sub)
+    # for obs dataset 
+    elif re.search('Data', ds_in.attrs['ds_path']):
+        # for dataset built from multiple files
+        if re.search('\*.nc', ds_in.attrs['ds_path']):
+            # find period
+            start_year = str(ds_in.time[0].dt.year.values)
+            end_year = str(ds_in.time[-1].dt.year.values)
+            # frequency
+            freq = find_tem_freq(ds_in)
+            # build filename
+            filename = ds_in.attrs['ds_name'] + '_' + ds_in.attrs['output_grid'] + '_' + freq + '-' + start_year +'-' + end_year +'.nc'
+        # for single file
+        else:
+            filename = ds_in.attrs['ds_path'].replace(ds_in.attrs['input_grid'],ds_in.attrs['output_grid'])
+    return filename
