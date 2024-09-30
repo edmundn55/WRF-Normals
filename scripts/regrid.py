@@ -74,10 +74,10 @@ def grid_parameter(ds):
     elif re.search('nrcan', ds, re.I):
         grid = 'na12'
         name = 'nrcan'
-    # for CERES
-    elif re.search('ceres', ds, re.I):
+    # for CERES EBAF-level3b
+    elif re.search('ceres', ds, re.I) and re.search('ebaf-level3b', ds, re.I):
         grid = 'na111'
-        name = 'ceres'
+        name = 'ceres-ebaf-level3b'
     # for Rutgers:
     elif re.search('rutger', ds, re.I):
         grid = 'nh24'
@@ -93,7 +93,11 @@ def grid_parameter(ds):
     # for ERA5 on single levels
     elif re.search('era5slev', ds, re.I):
         grid = 'na28'
-        name = 'era5slev'
+        # find subcategory
+        if re.search('*.nc', ds, re.I):
+            name = 'era5slev'
+        else:
+            name = 'era5slev' + '_' + get_nth_word_custom_delimiter(ds.rfind('/')::],'_',2))
     # generate parameters
     return grid, name
 
@@ -136,6 +140,31 @@ def build_dataset(dirs):
             # build dictionary
             obs_raw[obs_name] = obs
         return obs_raw
+
+# Fix lat/lon before regridding
+def fix_latlon(ds, type_d, wrf_ll = None):
+    """
+    Function: Fix lat/lon coordinates in datasets before applying regridding
+    Inputs: 
+    1. ds: xarray dataset/dataarray
+    2. type_d: type of dataset in string
+    3. wrf_ll: wrf lats and lons in dict (required for fixing wrf dataset)
+    Output: xarray dataset/dataarray
+    """
+    # for WRF dataset
+    if type_d == 'wrf':
+        # check if wrf lats and lons are provided
+        if wrf_ll is None:
+            print('missing lats lons ')
+        else:
+            ds_fixed = ds.assign_coords({'lat':(('south_north','west_east'),wrf_ll['lats'].values),'lon':(('south_north','west_east'),wrf_ll['lons'].values)})
+    # fixing coordinates name
+    elif 'latitude' in ds.coords or 'longitude' in ds.coords:
+        #rename coordinates name
+        ds_fixed = ds.rename({'latitude':'lat','longitude':'lon'})
+    else:
+        ds_fixed = ds
+    return  ds_fixed
 
 # Interpolate to WRF24 grids
 def to_WRF_grid(datasets, wrf_proj, wrf_d = None, m = 'patch'):
