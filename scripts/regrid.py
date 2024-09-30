@@ -54,6 +54,48 @@ def build_wrf_grid(geo_file):
     wrf_proj={'cart_proj':wrf_cart_proj, 'wrf_crs':wrf_xform_crs, 'wrf_lats':wrf_lats, 'wrf_lons':wrf_lons}
     return wrf_proj
 
+# function for grid parameter
+def grid_parameter(ds):
+    """
+    Function: Build parameters for both input and output dataset if necessary
+    Inputs: 
+    1. ds_in: path of input dataset (the one needs to be regridded) as string
+    Outputs:
+    1. Parameters: input grid*, input dataset as string
+    * nh = Northern Hemisphere
+      na = North America
+      grid is in km (approximate)
+    """
+    # for WRF dataset
+    if re.search('wrf', ds, re.I):
+        grid = 'wrfna24'
+        name = 'wrf'
+    # for NRCan
+    elif re.search('nrcan', ds, re.I):
+        grid = 'na12'
+        name = 'nrcan'
+    # for CERES
+    elif re.search('ceres', ds, re.I):
+        grid = 'na111'
+        name = 'ceres'
+    # for Rutgers:
+    elif re.search('rutger', ds, re.I):
+        grid = 'nh24'
+        name = 'rutger'
+    # for ERA5 Land
+    elif re.search('era5l', ds, re.I):
+        grid = 'na10'
+        name = 'era5l'
+    # for ERA5 on pressure levels
+    elif re.search('era5plev', ds, re.I):
+        grid = 'na28'
+        name = 'era5plev'
+    # for ERA5 on single levels
+    elif re.search('era5slev', ds, re.I):
+        grid = 'na28'
+        name = 'era5slev'
+    # generate parameters
+    return grid, name
 
 # load dataset and build dictionaries for regridding
 def build_dataset(dirs):
