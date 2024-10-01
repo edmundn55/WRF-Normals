@@ -395,7 +395,7 @@ if __name__ == "__main__":
     parser.add_argument('-ex', '--export', action = 'store_true', help = 'write regridded netcdf to disk')
     parser.add_argument('-dnc', '--dir_rgnc', default ='', help = 'Directory for exporting regridded ds.nc if not current directory')
     # convert arguments to objects
-    args = parser.parser_args()
+    args = parser.parse_args()
     # clear terminal
     os.system('clear')
     # run main program
