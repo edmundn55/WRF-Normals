@@ -215,8 +215,7 @@ def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
     print('regridding...')
     ds_in_re = regridder(ds_in, keep_attrs = True)
     # Update grid attrs in regridded dataset
-    ds_in_re['input_grid'] = ds_in.attrs['input_grid']
-    ds_in_re['output_grid'] = ds_out.attrs['input_grid']
+    ds_in_re.attrs['output_grid'] = ds_out.attrs['input_grid']
     return ds_in_re
 
 # Interpolate to WRF24 grids
@@ -319,5 +318,43 @@ def main(dir_in, dir_out, **kwargs):
     1. dir_in: input dataset (dataset that undergoes re-gridding)
     2. dir_out: output dataset (dataset that provides reference grid)
     **kwargs, keyword arguements
-    3. 
+    3. m: regridding method* as string, patch as default
+    * Methods avaiable: https://xesmf.readthedocs.io/en/stable/user_api.html
+      Methods definition: https://earthsystemmodeling.org/regrid/#regridding-methods
+    4. dir_wm: directory of weight matrix if not stored in current working directory
+    5. dir_wm_new: directory of created weight matrix, current working directory by default
+    6. dir_rgnc: directory of created regridded netcdf, current working directory by default
     """
+    # load dataset
+    ds_in = build_dataset(dir_in)
+    ds_out = build_dataset(dir_out)
+    # fixing latitude/longitude
+    # For WRF datasets
+    if 'wrf' in dir_in or 'wrf' in dir_out:
+        # build wrf grid, lat and lon
+        wrf_grid, wrf_ll = build_wrf_grid(geo_file)
+        # apply to wrf dataset
+        if 'wrf' in dir_in:
+            ds_in = fix_latlon(ds_in, wrf_ll)
+        elif 'wrf' in dir_out:
+            ds_out = fix_latlon(ds_out, wrf_ll)
+    else:
+        ds_in = fix_latlon(ds_in)
+        ds_out = fix_latlon(ds_out)
+    # Perform regridding
+    # check if method exists as input arg
+    if 'm' in kwargs.items():
+        method = kwargs['m']
+    else:
+        method = 'patch'
+    if 'dir_wm' in kwargs.items():
+        d_wm = kwargs['dir_wm']
+        ds_in_re = regrid_ds(ds_in, ds_out, m = method, dir_wm = d_wm)
+    elif 'dir_wm_new' in kwargs.items():
+        d_wm_new = kwargs['dir_wm']
+        ds_in_re = regrid_ds(ds_in, ds_out, m = method, dir_wm_new = d_wm_new)
+    else:
+        ds_in_re = regrid_ds(ds_in, ds_out, m = method)
+    # Write regridded netcdf to disk if necessary
+    if 'dir_rgnc' in kwargs.items():
+        
