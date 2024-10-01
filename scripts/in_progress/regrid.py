@@ -202,12 +202,13 @@ def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
                 pass
             wm = os.path.join(kwargs['dir_wm_new'], wm)
         wm_ds.to_netcdf(path = wm)
-        
+        print('done')
     # Perform regridding 
     print('regridding...')
     ds_in_re = regridder(ds_in, keep_attrs = True)
     # Update grid attrs in regridded dataset
     ds_in_re.attrs['output_grid'] = ds_out.attrs['input_grid']
+    print('done')
     return ds_in_re
 
 # Interpolate to WRF24 grids
