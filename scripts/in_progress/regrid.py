@@ -2,7 +2,7 @@
 # coding: utf-8
 
 # load packages
-import os,glob,sys
+import os, glob, sys, re
 import xesmf as xe
 import xarray as xr
 import numpy as np
@@ -28,7 +28,7 @@ xr.set_options(keep_attrs=True)
 def build_wrf_grid(geo_file):
     """
     Function: build x,y curvilinear grids from WRF input dataset and geo_em
-    Input: path for geo_em file
+    Input: path for WRF dataset, path for geo_em file
     Output: dictionary with WRF projection, coordinate system, lats, lons
     """
     # Open geo_em file, get HGT var, cart_proj and lats and lons
@@ -46,8 +46,9 @@ def build_wrf_grid(geo_file):
     # Define a latitude/longitude coordinate system
     wrf_xform_crs = crs.Geodetic(globe = wrf_globe)
     # Store ouput in dictionary
-    wrf_proj={'cart_proj':wrf_cart_proj, 'wrf_crs':wrf_xform_crs, 'wrf_lats':wrf_lats, 'wrf_lons':wrf_lons}
-    return wrf_proj
+    wrf_proj={'cart_proj':wrf_cart_proj, 'wrf_crs':wrf_xform_crs}
+    wrf_latlon = {'lats' : wrf_lats, 'lons' : wrf_lons}
+    return wrf_proj, wrf_latlon
 
 # function for grid parameter
 def grid_parameter(ds):
@@ -56,7 +57,7 @@ def grid_parameter(ds):
     Inputs: 
     1. ds_in: path of input dataset (the one needs to be regridded) as string
     Outputs:
-    1. Parameters: input grid*, input dataset as string
+    1. Parameters: input grid*, dataset type as string
     * nh = Northern Hemisphere
       na = North America
       grid is in km (approximate)
@@ -93,55 +94,40 @@ def grid_parameter(ds):
     elif re.search('era5slev', ds, re.I):
         grid = 'na28'
         # find subcategory
-        if re.search('*.nc', ds, re.I):
+        if re.search('\*.nc', ds, re.I):
             name = 'era5slev'
         else:
-            name = 'era5slev' + '_' + get_nth_word_custom_delimiter(ds.rfind('/')::],'_',2))
+            name = 'era5slev' + '_' + get_nth_word_custom_delimiter(ds[ds.rfind('/')::],'_',2)
     # generate parameters
     return grid, name
 
 # load dataset and build dictionaries for regridding
 def build_dataset(dirs):
     """
-    Function: Build dictionaries of xarray datasets from directories
-    Input: WRF / ERA5 / CERES / Rutgers directories
-    Output: xarray datasets in dictionaries
+    Function: load xarray dataset based on file type
+    Input: directory
+    Output: xarray dataset/ dataarray
     """
-    # For WRF datasets:
-    if any('wrf' in wrf_dir for wrf_dir in dirs):
-        wrf_raw = {}
-        for wrf_d in dirs:
+        # For WRF datasets:
+    if 'wrf' in dirs:
         # open dataset
-            wrf = xr.open_dataset(wrf_d,decode_times=False)
-            # get forcing dataset and physics configuration
-            force_d, phys = build_parameter(wrf,output=None)
-            # Grab first year
-            start_date = pd.to_datetime(data.attrs['begin_date'])
-            # Convert time to datetime64
-            wrf['time'] = pd.date_range(start = start_date, periods = wrf.sizes['time'], freq = 'MS')
-            # build dictionary
-            wrf_raw[force_d+'_'+phys] = wrf
-        return wrf_raw
+        ds = xr.open_dataset(dirs,decode_times=False)
+        # Grab first year
+        start_date = pd.to_datetime(ds.attrs['begin_date'])
+        # Convert time to datetime64
+        ds['time'] = pd.date_range(start = start_date, periods = ds.sizes['time'], freq = 'MS')
     # For OBS datasets:
     else:
-        obs_raw = {}
-        for obs_d in dirs:
-            # for ERA5L, CERES
-            if '*.nc' in obs_d:
-                obs = xr.open_mfdataset(obs_d).sortby('time')
-                # get obs dataset name
-                obs_name = get_nth_word_custom_delimiter(obs_d, '/', 6)
-            # for ERA5slev, Rutgers
-            else:
-                obs = xr.open_dataset(obs_d)
-                obs_name_full = get_nth_word_custom_delimiter(obs_d, '/', 7)
-                obs_name = get_nth_word_custom_delimiter(obs_name_full, '_', 1)
-            # build dictionary
-            obs_raw[obs_name] = obs
-        return obs_raw
+        # for ERA5L, CERES monthly nc
+        if '*.nc' in dirs:
+            ds = xr.open_mfdataset(dirs).sortby('time')
+        # for ERA5slev, Rutgers
+        else:
+            ds = xr.open_dataset(dirs)
+    return ds
 
 # Fix lat/lon before regridding
-def fix_latlon(ds, type_d, wrf_ll = None):
+def fix_latlon(ds, wrf_ll = None):
     """
     Function: Fix lat/lon coordinates in datasets before applying regridding
     Inputs: 
@@ -151,7 +137,7 @@ def fix_latlon(ds, type_d, wrf_ll = None):
     Output: xarray dataset/dataarray
     """
     # for WRF dataset
-    if type_d == 'wrf':
+    if 'lat' not in ds.coords and 'latitude' not in ds.coords:
         # check if wrf lats and lons are provided
         if wrf_ll is None:
             print('missing lats lons ')
@@ -170,19 +156,20 @@ def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
     """
     Function: perform regridding, reuse regridder weight matrix if found or write to disk as netcdf if missing
     Inputs:
-    1. ds_in: input dataset (dataset that undergoes re-gridding) with name and grid added as attrs
-    2. ds_out: output dataset (dataset that provides reference grid) with name and grid added as attrs
+    1. ds_in: input dataset (dataset that undergoes re-gridding) with ds_type and input_grid added as attrs
+    2. ds_out: output dataset (dataset that provides reference grid) with ds_type and input_grid added as attrs
     3. m: regridding method* as string, patch as default
     * Methods avaiable: https://xesmf.readthedocs.io/en/stable/user_api.html
       Methods definition: https://earthsystemmodeling.org/regrid/#regridding-methods
     **kwargs  keyword arguments
-    5. dir_wm: directory of weight matrix if not stored in current working directory
+    4. dir_wm: directory of weight matrix if not stored in current working directory
+    5. dir_wm_new: directory of newly create weight matrix, current working directory by default
     Outputs:
     1. Regridded xarray dataset/ dataarray
     2. Regridder weight matrix.nc if missing
     """
     # build weight matrix filename
-    wm = ds_in.attrs['ds_name'] +'-'+ ds_in.attrs['grid'] + '_' + ds_out.attrs['ds_name'] + '-' + ds_out.attrs['grid'] + '_' + m + '.nc'
+    wm = ds_in.attrs['ds_type'] +'-'+ ds_in.attrs['input_grid'] + '_' + ds_out.attrs['ds_type'] + '-' + ds_out.attrs['input_grid'] + '_' + m + '.nc'
     # build full path 
     # if weight matrix is not stored in current working directory
     if 'dir_wm' in kwargs.keys():
@@ -191,10 +178,10 @@ def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
         pass
     # check if weight matrix is previously created
     if os.path.isfile(wm):
-        regridder = xe.Regridder(ds_in, ds_out, method = m, weights = wm, keep_attrs = True)
+        regridder = xe.Regridder(ds_in, ds_out, method = m, weights = wm)
     # create weight matrix nc if missing
     else:
-        regridder = xe.Regridder(ds_in, ds_out, method = m, keep_attrs = True)
+        regridder = xe.Regridder(ds_in, ds_out, method = m)
         # build xr dataset for export, adapted from xesmf/frontend.py (Line 759 - 768). DOI: https://doi.org/10.5281/zenodo.4294774
         w = regridder.weights.data
         dim = 'n_s'
@@ -203,14 +190,14 @@ def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
         )
         # add attrs
         wm_ds.attrs['input_grid'] = ds_in.attrs['input_grid']
-        wm_ds.attrs['output_grid'] = ds_in.attrs['output_grid']
+        wm_ds.attrs['output_grid'] = ds_out.attrs['input_grid']
         wm_ds.to_netcdf(path = wm)
         
     # Perform regridding 
-    ds_in_re = regridder(ds_in)
+    ds_in_re = regridder(ds_in, keep_attrs = True)
     # Update grid attrs in regridded dataset
     ds_in_re['input_grid'] = ds_in.attrs['input_grid']
-    ds_in_re['output_grid'] = ds_in.attrs['output_grid']
+    ds_in_re['output_grid'] = ds_out.attrs['input_grid']
     return ds_in_re
 
 # Interpolate to WRF24 grids
