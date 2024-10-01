@@ -2,25 +2,17 @@
 # coding: utf-8
 
 # load packages
-import os, glob, sys, re
+import os, glob, sys, re, argparse
 import xesmf as xe
 import xarray as xr
 import numpy as np
 from netCDF4 import Dataset
 import pandas as pd
 import cartopy.crs as crs
-import matplotlib
-from cartopy.feature import NaturalEarthFeature 
-import cartopy.feature as cfeature
-import datetime
+# internal export
 sys.path.append('/project/p/peltier/edmundn/climate_normals_Py/scripts/')
 from Climate_normals import get_nth_word_custom_delimiter, build_parameter
-from wrf import (getvar, interplevel, vertcross, 
-                 CoordPair, ALL_TIMES, to_np,
-                 get_cartopy, latlon_coords,
-                 cartopy_xlim, cartopy_ylim,
-                 Constants,extract_vars)
-from matplotlib import pyplot as plt
+from wrf import (getvar, ALL_TIMES, to_np,get_cartopy, latlon_coords,Constants)
 # Define global setting
 xr.set_options(keep_attrs=True)
 # geo file for wrfna24 grid
@@ -234,6 +226,8 @@ def to_WRF_grid(ds, wrf_proj):
     wrf_y = xform_pts[...,1]
     ds_wrf=ds.assign_coords({'lat':(('south_north','west_east'),wrf_y),
                                                        'lon':(('south_north','west_east',),wrf_x)})
+    # update attrs
+    ds_wrf.attrs['output_grid'] = 'wrf24'
     return ds_wrf
 
 def find_tem_freq(ds_in):
@@ -277,7 +271,7 @@ def build_regridded_nc_filename(ds_in):
     # for WRF
     if re.search('wrf', ds_in.attrs['ds_path'], re.I):
         # for WRF norm
-        if re.search('norm', ds_in.attrs['ds_path']):
+        if re.search('-norm-', ds_in.attrs['ds_path']):
             filename = ds_in.attrs['ds_path'].replace(ds_in.attrs['input_grid'],ds_in.attrs['output_grid'])
         # for wrf monthly series
         else:
@@ -311,19 +305,21 @@ def build_regridded_nc_filename(ds_in):
     return filename
 
 # Function for automated regridding
-def main(dir_in, dir_out, **kwargs):
+def main(dir_in, dir_out, m ='patch', **kwargs):
     """
     Function: automated regridding based on file paths and assign output directories if necessary
     Inputs:
     1. dir_in: input dataset (dataset that undergoes re-gridding)
     2. dir_out: output dataset (dataset that provides reference grid)
-    **kwargs, keyword arguements
     3. m: regridding method* as string, patch as default
     * Methods avaiable: https://xesmf.readthedocs.io/en/stable/user_api.html
       Methods definition: https://earthsystemmodeling.org/regrid/#regridding-methods
+    **kwargs, keyword arguements
     4. dir_wm: directory of weight matrix if not stored in current working directory
-    5. dir_wm_new: directory of created weight matrix, current working directory by default
-    6. dir_rgnc: directory of created regridded netcdf, current working directory by default
+    5. dir_wmn: directory of created weight matrix, current working directory by default
+    6. to_wrf: boolean, convert lat/lon values to wrf coordinate system, false by default
+    7. export: boolean, write regridded netcdf to disk, False by default
+    8. dir_rgnc: directory of created regridded netcdf, current working directory by default
     """
     # load dataset
     ds_in = build_dataset(dir_in)
@@ -332,29 +328,77 @@ def main(dir_in, dir_out, **kwargs):
     # For WRF datasets
     if 'wrf' in dir_in or 'wrf' in dir_out:
         # build wrf grid, lat and lon
-        wrf_grid, wrf_ll = build_wrf_grid(geo_file)
+        wrf_proj, wrf_ll = build_wrf_grid(geo_file)
         # apply to wrf dataset
         if 'wrf' in dir_in:
             ds_in = fix_latlon(ds_in, wrf_ll)
+            ds_out = fix_latlon(ds_out)
         elif 'wrf' in dir_out:
+            ds_in = fix_latlon(ds_in)
             ds_out = fix_latlon(ds_out, wrf_ll)
     else:
         ds_in = fix_latlon(ds_in)
         ds_out = fix_latlon(ds_out)
     # Perform regridding
-    # check if method exists as input arg
-    if 'm' in kwargs.items():
-        method = kwargs['m']
-    else:
-        method = 'patch'
-    if 'dir_wm' in kwargs.items():
+    if kwargs['dir_wm'] != '':
         d_wm = kwargs['dir_wm']
-        ds_in_re = regrid_ds(ds_in, ds_out, m = method, dir_wm = d_wm)
-    elif 'dir_wm_new' in kwargs.items():
-        d_wm_new = kwargs['dir_wm']
-        ds_in_re = regrid_ds(ds_in, ds_out, m = method, dir_wm_new = d_wm_new)
+        ds_in_re = regrid_ds(ds_in, ds_out, m, dir_wm = d_wm)
+    elif kwargs['dir_wmn'] != '':
+        d_wm_new = kwargs['dir_wmn']
+        ds_in_re = regrid_ds(ds_in, ds_out, m, dir_wm_new = d_wm_new)
     else:
-        ds_in_re = regrid_ds(ds_in, ds_out, m = method)
+        ds_in_re = regrid_ds(ds_in, ds_out, m)
+    # Convert to WRF24 coordinate system
+    if kwargs['to_wrf'] is True:
+        print('converting to WRF coordinate system...')
+        ds_in_re = to_WRF_grid(ds_in_re, wrf_proj)
+        print('done')
+    else:
+        pass
     # Write regridded netcdf to disk if necessary
-    if 'dir_rgnc' in kwargs.items():
-        
+    if kwargs['export'] is True:
+        # build filename
+        filename = build_regridded_nc_filename(ds_in_re)
+        # for writing to specific location
+        if 'dir_rgnc' in kwargs.items():
+            d_rgnc = kwargs['dir_rgnc']
+            filename = os.path.join(d_rgnc, filename)
+        # check if directory exists
+            if os.path.exists(d_rgnc) is False:
+                os.makedirs(d_rgnc)
+            else:
+                print('directory',d_rgnc, 'exist')
+                pass
+        else:
+            # check if file exists
+            if os.path.isfile(filename) is False:
+                print('writing', filename, 'to disk')
+                ds_in_re.to_netcdf(path = filename)
+                print('done')
+            else:
+                print('file exists')
+    else:
+        pass
+    return ds_in_re
+                
+# Only excute codes when run as a script
+if __name__ == "__main__":
+    # Description
+    parser = argparse.ArgumentParser(description = 'Function: Perform regridding on input dataset based on reference dataset, covert to WRF coordinate system and/or export as netcdf if necessary')
+    # Mandatory argument
+    parser.add_argument('dirs', nargs = 2, help = 'input dataset (dataset that undergoes re-gridding) output dataset (dataset that provides reference grid)')
+    # Optional arguements
+    parser.add_argument('-m', '--method', default = 'patch', help = 'Method for regridding')
+    parser.add_argument('-dw', '--dir_wm', default = '', help = 'Directory of weight matrix.nc exists but not in current directory')
+    parser.add_argument('-dwn', '--dir_wmn', default ='', help = 'Directory for exporting weight matrix.nc if not current directory')
+    parser.add_argument('-tw', '--to_wrf', action = 'store_true', help ='convert to WRF coordinate system')
+    parser.add_argument('-ex', '--export', action = 'store_true', help = 'write regridded netcdf to disk')
+    parser.add_argument('-dnc', '--dir_rgnc', default ='', help = 'Directory for exporting regridded ds.nc if not current directory')
+    # convert arguments to objects
+    args = parser.parser_args()
+    # clear terminal
+    os.system('clear')
+    # run main program
+    main(dir_in = args.dirs[0], dir_out = args.dirs[1], m = args.method,
+         dir_wm = args.dir_wm, dir_wmn = args.dir_wmn, to_wrf = args.to_wrf, 
+         export = args.export, dir_rgnc = args.dir_rgnc)
