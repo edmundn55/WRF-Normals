@@ -23,6 +23,8 @@ from wrf import (getvar, interplevel, vertcross,
 from matplotlib import pyplot as plt
 # Define global setting
 xr.set_options(keep_attrs=True)
+# geo file for wrfna24 grid
+geo_file = '/scratch/p/peltier/mahdinia/wrf/MPIESM12HR_HS_na24_conus43-flk_1979/geo_em.d01.nc'
 
 # Build curvilinear grids for xarray datasets
 def build_wrf_grid(geo_file):
@@ -106,12 +108,12 @@ def build_dataset(dirs):
     """
     Function: load xarray dataset based on file type
     Input: directory
-    Output: xarray dataset/ dataarray
+    Output: xarray dataset/ dataarray with ds_type and input_grid added as attrs
     """
         # For WRF datasets:
     if 'wrf' in dirs:
         # open dataset
-        ds = xr.open_dataset(dirs,decode_times=False)
+        ds = xr.open_dataset(dirs, decode_times=False)
         # Grab first year
         start_date = pd.to_datetime(ds.attrs['begin_date'])
         # Convert time to datetime64
@@ -124,6 +126,11 @@ def build_dataset(dirs):
         # for ERA5slev, Rutgers
         else:
             ds = xr.open_dataset(dirs)
+    # add attrs for regridding
+    grid, name = grid_parameter(dirs)
+    ds.attrs['input_grid'] = grid
+    ds.attrs['ds_type'] = name
+    ds.attrs['ds_path'] = dirs
     return ds
 
 # Fix lat/lon before regridding
@@ -178,9 +185,11 @@ def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
         pass
     # check if weight matrix is previously created
     if os.path.isfile(wm):
+        print('weight matrix exists')
         regridder = xe.Regridder(ds_in, ds_out, method = m, weights = wm)
     # create weight matrix nc if missing
     else:
+        print('building weight matrix...')
         regridder = xe.Regridder(ds_in, ds_out, method = m)
         # build xr dataset for export, adapted from xesmf/frontend.py (Line 759 - 768). DOI: https://doi.org/10.5281/zenodo.4294774
         w = regridder.weights.data
@@ -191,9 +200,19 @@ def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
         # add attrs
         wm_ds.attrs['input_grid'] = ds_in.attrs['input_grid']
         wm_ds.attrs['output_grid'] = ds_out.attrs['input_grid']
+        # writing weight matrix to disk
+        # for storing weight matrix to other location
+        if 'dir_wm_new' in kwargs.keys():
+            # check if folder exists
+            if os.path.exists(kwargs['dir_wm_new']) is False:
+                os.makedirs(kwargs['dir_wm_new'])
+            else:
+                pass
+            wm = os.path.join(kwargs['dir_wm_new'], wm)
         wm_ds.to_netcdf(path = wm)
         
     # Perform regridding 
+    print('regridding...')
     ds_in_re = regridder(ds_in, keep_attrs = True)
     # Update grid attrs in regridded dataset
     ds_in_re['input_grid'] = ds_in.attrs['input_grid']
@@ -291,3 +310,14 @@ def build_regridded_nc_filename(ds_in):
         else:
             filename = ds_in.attrs['ds_path'].replace(ds_in.attrs['input_grid'],ds_in.attrs['output_grid'])
     return filename
+
+# Function for automated regridding
+def main(dir_in, dir_out, **kwargs):
+    """
+    Function: automated regridding based on file paths and assign output directories if necessary
+    Inputs:
+    1. dir_in: input dataset (dataset that undergoes re-gridding)
+    2. dir_out: output dataset (dataset that provides reference grid)
+    **kwargs, keyword arguements
+    3. 
+    """
