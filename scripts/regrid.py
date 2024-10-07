@@ -106,14 +106,18 @@ def build_dataset(dirs):
     if 'wrf' in dirs:
         # open dataset
         ds = xr.open_dataset(dirs, decode_times=False)
-        # Grab first year
-        start_date = pd.to_datetime(ds.attrs['begin_date'])
-        # Convert time to datetime64
-        ds['time'] = pd.date_range(start = start_date, periods = ds.sizes['time'], freq = 'MS')
+        # for time series data only
+        if 'norm' not in dirs:
+            # Grab first year
+            start_date = pd.to_datetime(ds.attrs['begin_date'])
+            # Convert time to datetime64
+            ds['time'] = pd.date_range(start = start_date, periods = ds.sizes['time'], freq = 'MS')
+        else:
+            pass
     # For OBS datasets:
     else:
-        # for ERA5L, CERES monthly nc
-        if '*.nc' in dirs:
+        # for ERA5L, CERES monthly or multiple nc
+        if '\*.nc' in dirs:
             ds = xr.open_mfdataset(dirs).sortby('time')
         # for ERA5slev, Rutgers
         else:
