@@ -40,7 +40,7 @@ def build_wrf_grid(geo_file):
     # Define a latitude/longitude coordinate system
     wrf_xform_crs = crs.Geodetic(globe = wrf_globe)
     # Store ouput in dictionary
-    wrf_proj={'cart_proj':wrf_cart_proj, 'wrf_crs':wrf_xform_crs}
+    wrf_proj = {'cart_proj':wrf_cart_proj, 'wrf_crs':wrf_xform_crs}
     wrf_latlon = {'lats' : wrf_lats, 'lons' : wrf_lons}
     return wrf_proj, wrf_latlon
 
@@ -88,7 +88,8 @@ def grid_parameter(ds):
     elif re.search('era5slev', ds, re.I):
         grid = 'na28'
         # find subcategory
-        if re.search('\*.nc', ds, re.I):
+        # for multiple files
+        if ds[-4::].lower() == '*.nc':
             name = 'era5slev'
         else:
             name = 'era5slev' + '_' + get_nth_word_custom_delimiter(ds[ds.rfind('/')::],'_',2)
@@ -172,7 +173,7 @@ def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
     2. Regridder weight matrix.nc if missing
     """
     # build weight matrix filename
-    wm = ds_in.attrs['ds_type'] +'-'+ ds_in.attrs['input_grid'] + '_' + ds_out.attrs['ds_type'] + '-' + ds_out.attrs['input_grid'] + '_' + m + '.nc'
+    wm = f"{ds_in.attrs['ds_type']}-{ds_in.attrs['input_grid']}_{ds_out.attrs['ds_type']}-{ds_out.attrs['input_grid']}_{m}.nc"
     # build full path 
     # if weight matrix is not stored in current working directory
     if 'dir_wm' in kwargs.keys():
@@ -226,11 +227,11 @@ def to_WRF_grid(ds, wrf_proj):
     Output: xarray dataset/dataarray in WRF24 grid
     """
     # Transform to WRF Projection
-    xform_pts = wrf_proj['cart_proj'].transform_points(wrf_proj['wrf_crs'],to_np(ds.lon.values),to_np(ds.lat.values))
-    wrf_x = xform_pts[...,0]
-    wrf_y = xform_pts[...,1]
-    ds_wrf=ds.assign_coords({'lat':(('south_north','west_east'),wrf_y),
-                                                       'lon':(('south_north','west_east',),wrf_x)})
+    xform_pts = wrf_proj['cart_proj'].transform_points(wrf_proj['wrf_crs'], to_np(ds.lon.values), to_np(ds.lat.values))
+    wrf_x = xform_pts[..., 0]
+    wrf_y = xform_pts[..., 1]
+    ds_wrf = ds.assign_coords({'lat':(('south_north', 'west_east'), wrf_y),
+                                                       'lon':(('south_north','west_east'), wrf_x)})
     # update attrs
     ds_wrf.attrs['output_grid'] = 'wrf24'
     return ds_wrf
@@ -290,20 +291,20 @@ def build_regridded_nc_filename(ds_in):
             # get wrf subcategory
             wrf_cat = get_nth_word_custom_delimiter(ds_in.attrs['description'], ' ', 1)
             # name for netcdf
-            filename_sub = wrf_cat + '_' + scen + '_' + 'monthly-' + start_year + '-' + end_year +'.nc' 
+            filename_sub = f"{wrf_cat}_{scen}_monthly-{start_year}-{end_year}.nc"
             # build filename
             filename = os.path.join(path_new, filename_sub)
     # for obs dataset 
     elif re.search('Data', ds_in.attrs['ds_path']):
         # for dataset built from multiple files
-        if re.search('\*.nc', ds_in.attrs['ds_path']):
+        if ds_in.attrs['ds_path'][-4::] == '*.nc':
             # find period
             start_year = str(ds_in.time[0].dt.year.values)
             end_year = str(ds_in.time[-1].dt.year.values)
             # frequency
             freq = find_tem_freq(ds_in)
             # build filename
-            filename = ds_in.attrs['ds_name'] + '_' + ds_in.attrs['output_grid'] + '_' + freq + '-' + start_year +'-' + end_year +'.nc'
+            filename = f"{ds_in.attrs['ds_name']}_{ds_in.attrs['output_grid']}_{freq}-{start_year}-{end_year}.nc"
         # for single file
         else:
             filename = ds_in.attrs['ds_path'].replace(ds_in.attrs['input_grid'],ds_in.attrs['output_grid'])
