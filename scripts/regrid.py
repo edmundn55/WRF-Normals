@@ -46,50 +46,33 @@ def grid_parameter(ds):
     Inputs: 
     1. ds_in: path of input dataset (the one needs to be regridded) as string
     Outputs:
-    1. Parameters: input grid*, dataset type as string
+    1. Parameters: grid* as string
     * nh = Northern Hemisphere
       na = North America
       grid is in km (approximate)
     """
     # for WRF dataset
     if re.search('wrf', ds, re.I):
-        name = 'wrf'
-        # find grid type
-        if re.search('na24', ds, re.I):
-            grid = 'na24'
-        elif re.search('wrf24', ds, re.I):
-            grid = 'wrf24'
+        grid = 'wrf-na24'
     # for NRCan
     elif re.search('nrcan', ds, re.I):
-        grid = 'na12'
-        name = 'nrcan'
+        grid = 'nrcan-na12'
     # for CERES EBAF-level3b
     elif re.search('ceres', ds, re.I) and re.search('ebaf-level3b', ds, re.I):
-        grid = 'na111'
-        name = 'ceres-ebaf-level3b'
+        grid = 'ceres-ebaf-level3b-na111'
     # for Rutgers:
     elif re.search('rutger', ds, re.I):
-        grid = 'nh24'
-        name = 'rutger'
+        grid = 'rutger-nh24'
     # for ERA5 Land
     elif re.search('era5l', ds, re.I):
-        grid = 'na10'
-        name = 'era5l'
+        grid = 'era5l-na10'
     # for ERA5 on pressure levels
     elif re.search('era5plev', ds, re.I):
-        grid = 'na28'
-        name = 'era5plev'
+        grid = 'era5plev-na28'
     # for ERA5 on single levels
     elif re.search('era5slev', ds, re.I):
-        grid = 'na28'
-        # find subcategory
-        # for multiple files
-        if ds[-4::].lower() == '*.nc':
-            name = 'era5slev'
-        else:
-            name = 'era5slev' + '_' + get_nth_word_custom_delimiter(ds[ds.rfind('/')::],'_',2)
-    # generate parameters
-    return grid, name
+        grid = 'era5slev-na28'
+    return grid
 
 # load dataset and build dictionaries for regridding
 def build_dataset(dirs):
