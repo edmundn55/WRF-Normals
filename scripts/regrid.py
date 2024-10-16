@@ -31,16 +31,8 @@ def build_wrf_grid(geo_file):
     wrf_cart_proj = get_cartopy(hgt)
     # lat, lon of WRF in WRF grid
     wrf_lats, wrf_lons = latlon_coords(hgt)
-    # Create WRF Projection
-    wrf_globe = crs.Globe(ellipse = None,
-                          semimajor_axis = Constants.WRF_EARTH_RADIUS,
-                          semiminor_axis = Constants.WRF_EARTH_RADIUS)
-    # Define a latitude/longitude coordinate system
-    wrf_xform_crs = crs.Geodetic(globe = wrf_globe)
-    # Store ouput in dictionary
-    wrf_proj = {'cart_proj':wrf_cart_proj, 'wrf_crs':wrf_xform_crs}
     wrf_latlon = {'lats' : wrf_lats, 'lons' : wrf_lons}
-    return wrf_proj, wrf_latlon
+    return wrf_latlon
 
 # function for grid parameter
 def grid_parameter(ds):
