@@ -20,9 +20,14 @@ xr.set_options(keep_attrs=True)
 def build_wrf_grid(geo_file):
     """
     Function: build x,y curvilinear grids from WRF input dataset and geo_em
-    Input: path for WRF dataset, path for geo_em file
+    Input: path for geo_em file, use env var if none is provided
     Output: dictionary with WRF projection, coordinate system, lats, lons
     """
+    # grab from env var if none is given
+    if geo_file =='':
+        geo_file = os.getenv('wrf_geo')
+    else:
+        pass
     # Open geo_em file, get HGT var, cart_proj and lats and lons
     geo = Dataset(geo_file)
     # GMTED2010 30-arc-second topography height
@@ -146,85 +151,50 @@ def fix_latlon(ds, wrf_ll = None):
     return  ds_fixed
 
 # Function for regridding
-def regrid_ds(ds_in, ds_out, m = 'patch', **kwargs):
+def regrid_ds(ds_in, grid_in , ds_out, grid_out, re_method = 'patch'):
     """
     Function: perform regridding, reuse regridder weight matrix if found or write to disk as netcdf if missing
     Inputs:
     1. ds_in: input dataset (dataset that undergoes re-gridding) with ds_type and input_grid added as attrs
-    2. ds_out: output dataset (dataset that provides reference grid) with ds_type and input_grid added as attrs
-    3. m: regridding method* as string, patch as default
+    2. grid_in : original grid of dataset as string
+    3. ds_out: output dataset (dataset that provides reference grid) with ds_type and input_grid added as attrs
+    4. grid_out: reprojected grid of dataset as string
+    5. re_mehtod: regridding method* as string, patch as default
     * Methods avaiable: https://xesmf.readthedocs.io/en/stable/user_api.html
       Methods definition: https://earthsystemmodeling.org/regrid/#regridding-methods
-    **kwargs  keyword arguments
-    4. dir_wm: directory of weight matrix if not stored in current working directory
-    5. dir_wm_new: directory of newly create weight matrix, current working directory by default
     Outputs:
     1. Regridded xarray dataset/ dataarray
     2. Regridder weight matrix.nc if missing
     """
     # build weight matrix filename
-    wm = f"{ds_in.attrs['ds_type']}-{ds_in.attrs['input_grid']}_{ds_out.attrs['ds_type']}-{ds_out.attrs['input_grid']}_{m}.nc"
+    wm = f"{grid_in}_{grid_out}_{re_method}.nc"
     # build full path 
-    # if weight matrix is not stored in current working directory
-    if 'dir_wm' in kwargs.keys():
-        wm = os.path.join(kwargs['dir_wm'],wm)
-    else:
-        pass
+    regrid_dir = os.getenv('grid_wm')
+    wm = os.path.join(regrid_dir,wm)
     # check if weight matrix is previously created
     if os.path.isfile(wm):
         print('weight matrix exists')
-        regridder = xe.Regridder(ds_in, ds_out, method = m, weights = wm)
+        regridder = xe.Regridder(ds_in, ds_out, method = re_method, weights = wm)
     # create weight matrix nc if missing
     else:
         print('building weight matrix...')
-        regridder = xe.Regridder(ds_in, ds_out, method = m)
+        regridder = xe.Regridder(ds_in, ds_out, method = re_method)
         # build xr dataset for export, adapted from xesmf/frontend.py (Line 759 - 768). DOI: https://doi.org/10.5281/zenodo.4294774
         w = regridder.weights.data
         dim = 'n_s'
         wm_ds = xr.Dataset(
             {'S': (dim, w.data), 'col': (dim, w.coords[1, :] + 1), 'row': (dim, w.coords[0, :] + 1)}
         )
-        # add attrs
-        wm_ds.attrs['input_grid'] = ds_in.attrs['input_grid']
-        wm_ds.attrs['output_grid'] = ds_out.attrs['input_grid']
         # writing weight matrix to disk
-        # for storing weight matrix to other location
-        if 'dir_wm_new' in kwargs.keys():
-            # check if folder exists
-            if os.path.exists(kwargs['dir_wm_new']) is False:
-                os.makedirs(kwargs['dir_wm_new'])
-            else:
-                pass
-            wm = os.path.join(kwargs['dir_wm_new'], wm)
         wm_ds.to_netcdf(path = wm)
         print('done')
     # Perform regridding 
     print('regridding...')
     ds_in_re = regridder(ds_in, keep_attrs = True)
     # Update grid attrs in regridded dataset
-    ds_in_re.attrs['output_grid'] = ds_out.attrs['input_grid']
+    ds_in_re.attrs['output_grid'] = grid_out
     print('done')
     return ds_in_re
-
-# Interpolate to WRF24 grids
-def to_WRF_grid(ds, wrf_proj):
-    """
-    Function: Interpolate input dataset (WRF/ERA5/CERES/Rutgers) to WRF24 grid and perform remapping 
-              remap from polar to WRF24 for i.ie. Rutgers Northern Hemisphere 24 km Weekly Snow Cover Extent
-              or from WGS1984 to WRF24 for i.e. ERA5 Land, ERA5 plev, ERA5 slev
-    Input: WRF / ERA5 / CERES / Rutgers xarray dataset/dataarray,
-           WRF projection, coordinate system 
-    Output: xarray dataset/dataarray in WRF24 grid
-    """
-    # Transform to WRF Projection
-    xform_pts = wrf_proj['cart_proj'].transform_points(wrf_proj['wrf_crs'], to_np(ds.lon.values), to_np(ds.lat.values))
-    wrf_x = xform_pts[..., 0]
-    wrf_y = xform_pts[..., 1]
-    ds_wrf = ds.assign_coords({'lat':(('south_north', 'west_east'), wrf_y),
-                                                       'lon':(('south_north','west_east'), wrf_x)})
-    # update attrs
-    ds_wrf.attrs['output_grid'] = 'wrf24'
-    return ds_wrf
 
 def find_tem_freq(ds_in):
     """
@@ -301,7 +271,7 @@ def build_regridded_nc_filename(ds_in):
     return filename
 
 # Function for automated regridding
-def main(dir_in, dir_out, m ='patch', dir_wm = None, dir_wmn = None, to_wrf = False, export = False, dir_rgnc = None):
+def main(dir_in, dir_out, method ='patch', dir_wm = None, dir_wmn = None, to_wrf = False, export = False, dir_rgnc = None):
     """
     Function: automated regridding based on file paths and assign output directories if necessary
     Inputs:
@@ -336,11 +306,11 @@ def main(dir_in, dir_out, m ='patch', dir_wm = None, dir_wmn = None, to_wrf = Fa
         ds_out = fix_latlon(ds_out)
     # Perform regridding
     if dir_wm is not None:
-        ds_in_re = regrid_ds(ds_in, ds_out, m, dir_wm = dir_wm)
+        ds_in_re = regrid_ds(ds_in, ds_out, method, dir_wm = dir_wm)
     elif dir_wmn is not None:
-        ds_in_re = regrid_ds(ds_in, ds_out, m, dir_wm_new = dir_wm_new)
+        ds_in_re = regrid_ds(ds_in, ds_out, method, dir_wm_new = dir_wm_new)
     else:
-        ds_in_re = regrid_ds(ds_in, ds_out, m)
+        ds_in_re = regrid_ds(ds_in, ds_out, method)
     # Convert to WRF24 coordinate system
     if to_wrf is True:
         print('converting to WRF coordinate system...')
@@ -392,6 +362,6 @@ if __name__ == "__main__":
     # clear terminal
     os.system('clear')
     # run main program
-    main(dir_in = args.dirs[0], dir_out = args.dirs[1], m = args.method,
+    main(dir_in = args.dirs[0], dir_out = args.dirs[1], method = args.method,
          dir_wm = args.dir_wm, dir_wmn = args.dir_wmn, to_wrf = args.to_wrf, 
          export = args.export, dir_rgnc = args.dir_rgnc)
