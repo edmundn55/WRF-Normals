@@ -250,49 +250,53 @@ def build_regridded_nc_filename(ds_in, ds_type):
     return filename
 
 # Function for automated regridding
-def main(dir_in, dir_out, method ='patch', export = False, dir_rgnc = None):
+def main(ds_in, ds_in_type, ds_out, ds_out_type, method ='patch', export = False, dir_rgnc = None):
     """
     Function: automated regridding based on file paths and assign output directories if necessary
     Inputs:
-    1. dir_in: input dataset (dataset that undergoes re-gridding)
-    2. dir_out: output dataset (dataset that provides reference grid)
-    3. method: regridding method* as string, patch as default
-    7. export: boolean, write regridded netcdf to disk, False by default
-    8. dir_rgnc: directory of created regridded netcdf, current working directory by default
+    1. ds_in: input dataset (dataset that undergoes re-gridding), path as string or xarray dataset/dataarray
+    2. ds_in_type: type of dataset, i.e. wrf, era5slev_lsm, used for constructing regridded nc filename
+    3. ds_out: output dataset (dataset that provides reference grid), path as string or xarray dataset/dataarray
+    4. ds_out_type: type of dataset, i.e. wrf, era5slev_lsm
+    5. method: regridding method* as string, patch as default
+    6. export: boolean, write regridded netcdf to disk, False by default
+    7. dir_rgnc: directory of created regridded netcdf, current working directory by default
     * Methods avaiable: https://xesmf.readthedocs.io/en/stable/user_api.html
       Methods definition: https://earthsystemmodeling.org/regrid/#regridding-methods
     """
-    # load dataset
-    ds_in = build_dataset(dir_in)
-    ds_out = build_dataset(dir_out)
+    # load dataset if inputs are strings
+    if isinstance(type(ds_in),str):
+        ds_in = build_dataset(ds_in)
+    else:
+        pass
+    if isinstance(type(ds_out),str):
+        ds_out = build_dataset(ds_out)
+    else:
+        pass
+    # Obtain grid info for both datasets
+    in_grid = grid_parameter(ds_in)
+    out_grid = grid_parameter(ds_out)
     # fixing latitude/longitude
     # For WRF datasets
-    if 'wrf' in dir_in or 'wrf' in dir_out:
-        # build wrf grid, lat and lon
+    if ds_in_type == 'wrf' or ds_out_type == 'wrf':
+        # build wrf lat and lon
         wrf_ll = build_wrf_grid(geo_file)
         # apply to wrf dataset
-        if 'wrf' in dir_in:
+        if ds_in_typ == 'wrf':
             ds_in = fix_latlon(ds_in, wrf_ll)
             ds_out = fix_latlon(ds_out)
-        elif 'wrf' in dir_out:
+        elif ds_out_type == 'wrf':
             ds_in = fix_latlon(ds_in)
             ds_out = fix_latlon(ds_out, wrf_ll)
     else:
         ds_in = fix_latlon(ds_in)
         ds_out = fix_latlon(ds_out)
     # Perform regridding
-        ds_in_re = regrid_ds(ds_in, ds_out, method)
-    # Convert to WRF24 coordinate system
-    if to_wrf is True:
-        print('converting to WRF coordinate system...')
-        ds_in_re = to_WRF_grid(ds_in_re, wrf_proj)
-        print('done')
-    else:
-        pass
+        ds_in_re = regrid_ds(ds_in, in_grid, ds_out, out_grid, method)
     # Write regridded netcdf to disk if necessary
     if export is True:
         # build filename
-        filename = build_regridded_nc_filename(ds_in_re)
+        filename = build_regridded_nc_filename(ds_in_re, ds_in_type)
         # for writing to specific location
         if dir_rgnc is not None:
             d_rgnc = kwargs['dir_rgnc']
@@ -320,7 +324,10 @@ if __name__ == "__main__":
     # Description
     parser = argparse.ArgumentParser(description = 'Function: Perform regridding on input dataset based on reference dataset, covert to WRF coordinate system and/or export as netcdf if necessary')
     # Mandatory argument
-    parser.add_argument('dirs', nargs = 2, help = 'input dataset (dataset that undergoes re-gridding) output dataset (dataset that provides reference grid)')
+    parser.add_argument('ds_in', help = 'input dataset (dataset that undergoes re-gridding)')
+    parser.add_argument('ds_in_type', help = 'type of input dataset')
+    parser.add_argument('ds_out', help = 'output dataset (dataset that provides reference grid)')
+    parser.add_argument('ds_out_type', help = 'type of output dataset')
     # Optional arguements
     parser.add_argument('-m', '--method', default = 'patch', help = 'Method for regridding')
     parser.add_argument('-ex', '--export', action = 'store_true', help = 'write regridded netcdf to disk')
@@ -330,5 +337,6 @@ if __name__ == "__main__":
     # clear terminal
     os.system('clear')
     # run main program
-    main(dir_in = args.dirs[0], dir_out = args.dirs[1], method = args.method,
-         export = args.export, dir_rgnc = args.dir_rgnc)
+    main(dir_in = args.ds_in, ds_in_type = args.ds_in_type, 
+         dir_out = args.ds_out, ds_out_type = args.ds_out_type, 
+         method = args.method, export = args.export, dir_rgnc = args.dir_rgnc)
