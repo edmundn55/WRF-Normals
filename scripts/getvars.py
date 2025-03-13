@@ -28,8 +28,6 @@ class wrfvars:
     8. srfc_ps: Surface pressure
     9. srfc_evap: Surface accumulated evaporation
     10. UV: u,v wind components at surface or pressure level
-    a. Pressure level input in hPa
-    b. Conversions from K to dgC, Pa to hPa, kg/m^2s to mm/day are available
     """
     # get values for time dimension
     def get_time(data):
@@ -355,10 +353,9 @@ class wrfvars:
                                  chunks = {'time' : 4, 'lat' : 32*4, 'lon' : 32*4},
                                  join = 'outer', decode_times = False)
         # rename variable for PET calculation
-        data = data.rename({
-            'ALBEDO':'A','NetRadiation':'netrad','ACGRDFLX':'grdflx',
-            'PSFC':'ps','T2MAX':'Tmax','T2MIN':'Tmin','XLAT_M':'xlat',
-            'XLONG_M':'xlon','HGT_M':'zs','Q2':'q2','U10':'u10','V10':'v10'})
+        data = data.rename({'ALBEDO' : 'A', 'NetRadiation' : 'netrad', 'ACGRDFLX' : 'grdflx',
+                            'PSFC' : 'ps', 'T2MAX' : 'Tmax', 'T2MIN' : 'Tmin', 'XLAT_M' : 'xlat',
+                            'XLONG_M' : 'xlon', 'HGT_M' : 'zs', 'Q2' : 'q2', 'U10' : 'u10', 'V10' : 'v10'})
         # Remove the time dimension from coordinates
         data['xlat'] = data.xlat.isel(Time=0)
         data['xlon'] = data.xlon.isel(Time=0)
