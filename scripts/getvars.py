@@ -11,7 +11,7 @@ from regrid import build_wrf_grid, fix_latlon
 from wrf import (getvar, ALL_TIMES, to_np,get_cartopy, latlon_coords,Constants)
 xr.set_options(keep_attrs=True)
 
-class wrfvars
+class wrfvars:
     """
     Shortcuts for getting wrf variables
     1. GHT: Geopotential Height
@@ -33,12 +33,19 @@ class wrfvars
         start_date = pd.to_datetime(data.attrs['begin_date'])
         data['time'] = pd.date_range(start = start_date, periods = data.sizes['time'], freq = 'MS')
         return data
+    # list pressure levels and corresponding 
+    def get_pressure_level(wrf_folder, avg_folder):
+        data = xr.open_dataset(wrf_folder + avg_folder +  'wrfplev3d_d01_monthly.nc', decode_times = False)
+        for i in data.num_press_levels_stag.values:
+            print(f"num_press_levels_stag {i} : {data['P_PL'].isel(time = 0, num_press_levels_stag = i).values} Pa / "
+                  f"{data['P_PL'].isel(time = 0, num_press_levels_stag = i).values/100} hPa")
     # lapse rate
     def get_lapse_rate(wrf_folder, avg_folder, plev1, plev2):
-    """
-    plev1 : lower pressure level
-    plev2 : higher pressure level
-    """
+        """
+        Compute lapse rate = delta(Temperature)/delta(geopotential height) 
+        plev1 : lower pressure level in hPa
+        plev2 : higher pressure level in hPa
+        """
         data = xr.open_dataset(wrf_folder + avg_folder +  'wrfplev3d_d01_monthly.nc', decode_times = False)
         # add time values
         data = get_time(data)
@@ -54,6 +61,9 @@ class wrfvars
         data_sliced = data_sliced.diff(dim = 'num_press_levels_stag')
         # get lapse rate in K/km
         data_sliced = data_sliced.assign(lapse_rate = lambda x: x.T_PL/x.GHT_PL*1000)
+        # create attrs for lapse rate
+        data_sliced['lapse_rate'] = data_sliced['lapse_rate'].assign_attrs(long_name = f'Lapse Rate between {plev1/100} hPa and {plev2/100} hPa', 
+                                                                           unit = 'K/km')
         # add global attrs back to dataarray
         for attrs in data.attrs:
             data_sliced['lapse_rate'].attrs[attrs] = data.attrs[attrs]
@@ -252,7 +262,7 @@ class wrfvars
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data_sliced = fix_latlon(data_sliced, wrf_ll)
         return data_sliced
-    # prepare dataset for PET cal
+    # prepare dataset for PET cals adapted from Mahdinia
     def get_PET_cal(wrf_folder, avg_folder):
         data = xr.open_mfdataset([wrf_folder+'/geo_em.d01.nc',
                                   wrf_folder+'/'+avg_folder+'/wrfsrfc_d01_monthly.nc',
@@ -274,7 +284,8 @@ class wrfvars
         # Change the name of zs units from 'meters MSL' to 'm' in WRF PET dataset
         data['zs'].attrs['units'] = 'm'
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
+        return data
