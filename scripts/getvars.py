@@ -43,7 +43,7 @@ class wrfvars:
         """
         Function: Identify the value at each pressure level (dim: num_press_levels_stag) in wrfplev3d
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfplev3d_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfplev3d_d01_monthly.nc", decode_times = False)
         for i in data.num_press_levels_stag.values:
             print(f"num_press_levels_stag {i} : {data['P_PL'].isel(time = 0, num_press_levels_stag = i).values} Pa / "
                   f"{data['P_PL'].isel(time = 0, num_press_levels_stag = i).values/100} hPa")
@@ -58,9 +58,9 @@ class wrfvars:
             plev2 : higher pressure level in hPa
    
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfplev3d_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfplev3d_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -88,9 +88,9 @@ class wrfvars:
         """
         # convert hpa to pa for index
         plev1 *= 100
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfplev3d_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfplev3d_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # extract variables and convert to dgC
         data_sliced = data['GHT_PL'].where(data['P_PL'] == plev1, drop = True)
         # add global attrs back to dataarray
@@ -104,9 +104,9 @@ class wrfvars:
         Formula: Accumulated surface upwelling shortwave radiation/Accumulated surface downwelling shortwave radiation
         Units: unitless
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfrad_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfrad_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -125,9 +125,9 @@ class wrfvars:
         Formula: Net Radiation - Net Longwave Radiation
         Units: W/m^2 or J/m^2/s
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfrad_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfrad_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -145,9 +145,9 @@ class wrfvars:
         Function: Get surface net downward longwave flux
         Units: W/m^2 or J/m^2/s
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfrad_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfrad_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -164,9 +164,9 @@ class wrfvars:
         Function: Get latent heat
         Units: W/m^2 or J/m^2/s
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfsrfc_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfsrfc_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -182,9 +182,9 @@ class wrfvars:
         Function: Get sensible heat
         Units: W/m^2 or J/m^2/s
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfsrfc_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfsrfc_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -200,9 +200,9 @@ class wrfvars:
         Function: Get planetary boundary layer height
         Units: m
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfsrfc_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfsrfc_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -220,9 +220,9 @@ class wrfvars:
         Additional input(s):
             conver_unit: True/False (default: False), convert Pa to hPa
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfsrfc_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfsrfc_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -244,9 +244,9 @@ class wrfvars:
         Function: Get accumulated snow
         Units: kg/m^-2/s
         """
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrflsm_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrflsm_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -267,9 +267,9 @@ class wrfvars:
         """
         # convert hpa to pa for index
         plev1 *= 100
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfplev3d_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfplev3d_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -293,9 +293,9 @@ class wrfvars:
             conver_unit: True/False (default: False), convert kg/m^2/s to kg/m^2/day
         """
         # convert hpa to pa for index
-        data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfhydro_d01_monthly.nc", decode_times = False)
+        data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfhydro_d01_monthly.nc", decode_times = False)
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
@@ -323,18 +323,18 @@ class wrfvars:
         # for u,v at pressure level 
         if plev1 != None:
             plev1 *= 100
-            data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfplev3d_d01_monthly.nc", decode_times = False)
+            data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfplev3d_d01_monthly.nc", decode_times = False)
             data_sliced = data[['U_PL', 'V_PL']].where(data['P_PL'] == plev1, drop = True)
         # for u,v at surface level
         else:
-            data = xr.open_dataset(f"{wrf_folder}{avg_folder}wrfsrfc_d01_monthly.nc", decode_times = False)
+            data = xr.open_dataset(f"{wrf_folder}{avg_folder}/wrfsrfc_d01_monthly.nc", decode_times = False)
             # extract variables and convert to hPa
             data_sliced = data[['U10', 'V10']]
         # add global attrs back to dataarray
         for attrs in data.attrs:
             data_sliced.attrs[attrs] = data.attrs[attrs]
         # add time values
-        data_sliced = get_time(data_sliced)
+        data_sliced = wrfvars.get_time(data_sliced)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
         data_sliced = fix_latlon(data_sliced, wrf_ll)
@@ -345,10 +345,10 @@ class wrfvars:
         Function: Get all variables required for PET computation and rename if necessary
         """
         data = xr.open_mfdataset([f"{wrf_folder}geo_em.d01.nc",
-                                  f"{wrf_folder}{avg_folder}wrfsrfc_d01_monthly.nc",
-                                  f"{wrf_folder}{avg_folder}wrfrad_d01_monthly.nc",
-                                  f"{wrf_folder}{avg_folder}wrflsm_d01_monthly.nc",
-                                  f"{wrf_folder}{avg_folder}wrfxtrm_d01_monthly.nc"],
+                                  f"{wrf_folder}{avg_folder}/wrfsrfc_d01_monthly.nc",
+                                  f"{wrf_folder}{avg_folder}/wrfrad_d01_monthly.nc",
+                                  f"{wrf_folder}{avg_folder}/wrflsm_d01_monthly.nc",
+                                  f"{wrf_folder}{avg_folder}/wrfxtrm_d01_monthly.nc"],
                                  concat_dim = None, compat = 'override', engine = 'netcdf4',
                                  chunks = {'time' : 4, 'lat' : 32*4, 'lon' : 32*4},
                                  join = 'outer', decode_times = False)
@@ -363,7 +363,7 @@ class wrfvars:
         # Change the name of zs units from 'meters MSL' to 'm' in WRF PET dataset
         data['zs'].attrs['units'] = 'm'
         # add time values
-        data = get_time(data)
+        data = wrfvars.get_time(data)
         # add lat lon to wrf
         wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
