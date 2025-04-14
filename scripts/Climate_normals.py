@@ -138,7 +138,7 @@ def climate_normals(freq, dir_ouput, start, end):
             print(key, 'skip\n')
         else:
             # Group dataset by months or seasons and compute mean
-            data_norm = data.groupby('time.' + freq).mean('time')
+            data_norm = data.groupby('time.' + freq).mean('time', skipna = True)
             # Export normals as netcdfs
             data_norm.to_netcdf(out_file)
         print('done\n')
