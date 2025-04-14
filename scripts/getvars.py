@@ -62,7 +62,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # convert hpa to pa for index
         plev1 *= 100
@@ -108,7 +108,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # extract variables
         data_sliced = data[['ACSWUPB','ACSWDNB']]
@@ -129,7 +129,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # extract variables
         data_sliced = data[['NetRadiation', 'NetLWRadiation']]
@@ -149,7 +149,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # extract variables
         data_sliced = data['NetLWRadiation']
@@ -168,7 +168,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # extract variables
         data_sliced = data['LH']
@@ -186,7 +186,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # extract variables
         data_sliced = data['HFX']
@@ -204,7 +204,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # extract variables
         data_sliced = data['PBLH']
@@ -224,7 +224,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # extract variables and convert to hPa
         data_sliced = data[['PSFC']]
@@ -248,7 +248,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # extract variables
         data_sliced = data['ACSNOW']
@@ -271,7 +271,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         if conver_unit is True:
             # extract variables and convert to dgC
@@ -297,7 +297,7 @@ class wrfvars:
         # add time values
         data = wrfvars.get_time(data)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data = fix_latlon(data, wrf_ll)
         # extract variables
         data_sliced = data['SFCEVP']
@@ -336,7 +336,7 @@ class wrfvars:
         # add time values
         data_sliced = wrfvars.get_time(data_sliced)
         # add lat lon to wrf
-        wrf_ll = build_wrf_grid(geofile = f"{wrf_folder}geo_em.d01.nc")
+        wrf_ll = build_wrf_grid(f"{wrf_folder}geo_em.d01.nc")
         data_sliced = fix_latlon(data_sliced, wrf_ll)
         return data_sliced
     # prepare dataset for PET cals adapted from Mani Mahdinia
