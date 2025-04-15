@@ -43,7 +43,7 @@ def build_parameter(data, output = 'path'):
     # For WRFTools
     if 'WRFTools' in data.attrs['experiment']:
         par = get_nth_word_custom_delimiter(data.attrs['experiment'], '_', 2) 
-        path = 'WRFTools/' + par + '/na24/'
+        path = f"{WRFTools}/{par}/na24/"
         scen = ''                                                            # Empty for WRFTools
 
     else:
@@ -60,7 +60,7 @@ def build_parameter(data, output = 'path'):
             phys = phys[0:-5]
         else:
             pass
-        path = force_d + '/' + grid + '/' + phys + '/'
+        path = f"{force_d}/{grid}/{phys}/"
     # return by conditions
     if output == 'path':
         return path, scen
@@ -101,7 +101,7 @@ def climate_normals(freq, dir_ouput, start, end):
         if start != "" and end != "":
             start_date = pd.to_datetime(start + '-01-01')
             end_date = pd.to_datetime(end + '-12-31')
-            data = data.sel(time=slice(start_date, end_date))
+            data = data.sel(time = slice(start_date, end_date))
         else: 
             pass
         # Add global attribute for normal period
@@ -126,9 +126,9 @@ def climate_normals(freq, dir_ouput, start, end):
         # Build full path for output file
         # For missing scenario
         if scen == '':
-            out_file = out_dir + '/' + wrf_cat + '_' + freq[0:3] + '-norm-' + start_year + '-' + end_year + '.nc'
+            out_file = f"{out_dir}/{wrf_cat}_{freq[0:3]}-norm-{start_year}-{end_year}.nc"
         else:
-            out_file = out_dir + '/' + wrf_cat + '_' + scen + '_' + freq[0:3] + '-norm-' + start_year + '-' + end_year + '.nc'
+            out_file = f"{out_dir}/{wrf_cat}_{scen}_{freq[0:3]}-norm-{start_year}-{end_year}.nc"
         # Check if file exists
         if os.path.isfile(out_file):
             print(out_file, 'File exists\n')
@@ -137,8 +137,13 @@ def climate_normals(freq, dir_ouput, start, end):
         elif 'tmp_' in key:
             print(key, 'skip\n')
         else:
-            # Group dataset by months or seasons and compute mean
-            data_norm = data.groupby('time.' + freq).mean('time', skipna = True)
+            # Group dataset by months/seasons/day of year/annual and compute mean
+            if freq == 'month' or freq == 'season':
+                data_norm = data.groupby('time.' + freq).mean('time', skipna = True)
+            elif freq == 'doy':
+                 data_norm = data.groupby('time.dayofyear').mean('time', skipna = True)
+            elif freq == 'annual':
+                data_norm = data.mean('time', skipna = True)
             # Export normals as netcdfs
             data_norm.to_netcdf(out_file)
         print('done\n')
@@ -149,7 +154,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = 
                                      'Function: Compute monthly or seasonal norms and export as netcdf from monthly data series')
     # Optional arguments
-    parser.add_argument('-f', '--freq', type = str, default = 'month', help = 'Frequency: month or season')
+    parser.add_argument('-f', '--freq', type = str, default = 'month', help = 'Frequency: month/season/doy/annual')
     # Directory for output
     parser.add_argument('-d', '--dir', type = str, default = '', help = "Directory of output as string")
     # Period
