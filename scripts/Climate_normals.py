@@ -43,7 +43,7 @@ def build_parameter(data, output = 'path'):
     # For WRFTools
     if 'WRFTools' in data.attrs['experiment']:
         par = get_nth_word_custom_delimiter(data.attrs['experiment'], '_', 2) 
-        path = f"{WRFTools}/{par}/na24/"
+        path = f"WRFTools/{par}/na24/"
         scen = ''                                                            # Empty for WRFTools
 
     else:
